@@ -1,0 +1,4 @@
+[submodule "Lama"]
+	path = Lama
+	url = git@github.com:Random-Randoms/Lama-custom-patch.git
+	branch = patch
