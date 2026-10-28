@@ -3,13 +3,19 @@ use std::{
     ops::{Add, AddAssign},
 };
 
-use anyhow::{Context, anyhow};
+use anyhow::{Context, anyhow, ensure};
 use insn::Insn;
 use log::debug;
 
 use crate::{
     opnd::{Opnd, Value},
-    program::{insn::LoadInsn, layout::Layout, load::Load, string_tab::StringTab},
+    program::{
+        insn::{AnalyticInsn, LoadInsn},
+        layout::Layout,
+        load::Load,
+        string_tab::StringTab,
+    },
+    util,
 };
 
 pub mod insn;
@@ -19,6 +25,10 @@ pub mod loc;
 pub struct Ip(usize);
 
 impl Ip {
+    pub fn raw(self) -> usize {
+        self.0
+    }
+
     pub fn into_opnd(self) -> Opnd {
         Value::Ptr(self.0).into_opnd()
     }
@@ -55,16 +65,19 @@ struct InsnIter<'a> {
 }
 
 impl<'a> Iterator for InsnIter<'a> {
-    type Item = Insn;
+    type Item = AnalyticInsn;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.code
-            .get_insn_or_end(Ip(self.off))
-            .ok()?
-            .map(|(insn, ip)| {
-                self.off = ip.0;
-                insn
-            })
+        let (insn, next_off) = loop {
+            let insn = self.code.get_insn_or_end(Ip(self.off)).ok()??;
+            if !matches!(insn.0, Insn::Line(_)) {
+                break insn;
+            }
+            self.off = insn.1.0;
+        };
+        let old_off = self.off;
+        self.off = next_off.0;
+        Some(AnalyticInsn::new(insn, old_off))
     }
 }
 
@@ -92,7 +105,7 @@ impl<'a> Code<'a> {
             .map(|(insn, off)| (insn, Ip(off))))
     }
 
-    pub fn get_insns(&self) -> impl Iterator<Item = Insn> {
+    pub fn get_analytic_insns(&self) -> impl Iterator<Item = AnalyticInsn> {
         InsnIter { off: 0, code: self }
     }
 
@@ -123,8 +136,15 @@ pub trait LoadIp: Load {
 
 impl<T: Load + ?Sized> LoadIp for T {
     fn load_ip(&self, off: usize) -> anyhow::Result<Ip> {
-        { Ok::<_, anyhow::Error>(Ip(self.load_i32(off)?.try_into()?)) }
-            .context("Couldn't load instruction pointer")
+        util::catch! {{
+            let ip = self
+                .load_i32(off)?
+                .try_into()
+                .context("Insn pointer should be non-negative")?;
+            ensure!(ip < self.len());
+            Ok::<_, anyhow::Error>(Ip(ip))
+        }}
+        .context("Couldn't load instruction pointer")
     }
 }
 

@@ -27,7 +27,7 @@ bash test.sh
 ```
 
 ### Analyzer
-If you have `lamac` 1.3 installed, ou can analyze `Sort.lama` file from Lama prefomance suite with the following command:
+If you have `lamac` 1.3 installed, ou can analyze `Sort.lama` file from Lama preformance suite with the following command:
 ```shell
 lamac -b Lama/perfomance/Sort.lama
 cargo run --release -- --file Sort.bc --analyze
@@ -43,9 +43,19 @@ cargo run --release --  --file foo.bc
 
 ### Analysis
 ```shell
-cargo run --release -- lama-intr --file boo.bc --analyze
+cargo run --release -- --file boo.bc --analyze
 ```
 This command will print
+
+## Performance
+This interpreter is really slow, compared to `lamac -s` implementation.
+Measured for `Sort.lama` file from Lama performance suite, with array size=500.
+```shell
+$ time -f "%E" lamac -s Lama/performance/Sort.lama </dev/null
+0:00.89
+$ time -f "%E" ./target/release/lama-intr --file Sort.bc
+0:18.87
+```
 
 ## Notes
 

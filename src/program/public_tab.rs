@@ -21,6 +21,22 @@ pub struct Entry {
 #[derive(Debug, Clone, Copy)]
 pub struct PublicPointer(usize);
 
+struct EntryIterator<'a> {
+    off: usize,
+    tab: PublicTab<'a>,
+}
+
+impl<'a> Iterator for EntryIterator<'a> {
+    type Item = Entry;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let old_off = self.off;
+        self.off += ENTRY_SIZE;
+        self.tab.get_entry_at(old_off).ok()
+    }
+}
+
+#[derive(Clone, Copy)]
 pub struct PublicTab<'a> {
     data: &'a [u8],
 }
@@ -30,8 +46,16 @@ impl<'a> PublicTab<'a> {
         Self { data }
     }
 
+    fn get_entry_at(&self, at: usize) -> anyhow::Result<Entry> {
+        self.data.load_entry(at)
+    }
+
     pub fn get(&self, ptr: PublicPointer) -> anyhow::Result<Entry> {
         self.data.load_entry(ptr.0 * ENTRY_SIZE)
+    }
+
+    pub fn get_entries(&self) -> impl Iterator<Item = Entry> {
+        EntryIterator { off: 0, tab: *self }
     }
 
     pub fn get_entry_point<'b>(&self, string_tab: StringTab<'b>) -> anyhow::Result<Entry> {

@@ -140,7 +140,7 @@ impl<'a> CurFrame<'a> {
     }
 }
 
-const MAX_OPNDS: usize = 1 << 14;
+const MAX_OPNDS: usize = 1 << 15;
 
 #[repr(align(16))]
 struct Wrap([Opnd; MAX_OPNDS]);
@@ -154,7 +154,7 @@ struct OpStack {
 impl OpStack {
     fn new(globals: usize) -> anyhow::Result<Self> {
         if globals > MAX_OPNDS {
-            bail!("Globals ({globals}) overflow operand stack {MAX_OPNDS}");
+            bail!("Cannot have more than {MAX_OPNDS} globals");
         }
         let slf = Self {
             opnds: Wrap([Opnd::null(); MAX_OPNDS]),

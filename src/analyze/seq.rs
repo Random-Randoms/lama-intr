@@ -1,14 +1,14 @@
 use std::fmt::Display;
 
-use crate::program::insn::Insn;
+use crate::analyze::insn::Instruction;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub enum Seq {
-    One(Insn),
-    Two(Insn, Insn),
+pub enum Seq<T: Instruction> {
+    One(T),
+    Two(T, T),
 }
 
-impl Display for Seq {
+impl<T: Instruction> Display for Seq<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Seq::One(insn) => {

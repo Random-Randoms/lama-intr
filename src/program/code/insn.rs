@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, hash::Hash, iter};
 
 use anyhow::{Context, anyhow, bail};
 use log::debug;
@@ -103,6 +103,20 @@ impl ToIsize for bool {
     }
 }
 
+const ADD_LOW: u8 = 1;
+const SUB_LOW: u8 = 2;
+const MUL_LOW: u8 = 3;
+const DIV_LOW: u8 = 4;
+const MOD_LOW: u8 = 5;
+const LT_LOW: u8 = 6;
+const LE_LOW: u8 = 7;
+const GT_LOW: u8 = 8;
+const GE_LOW: u8 = 9;
+const EQ_LOW: u8 = 10;
+const NE_LOW: u8 = 11;
+const AND_LOW: u8 = 12;
+const OR_LOW: u8 = 13;
+
 impl Binop {
     pub fn eval(&self, lhs: Opnd, rhs: Opnd) -> anyhow::Result<Opnd> {
         match self {
@@ -119,19 +133,19 @@ impl Binop {
 
     fn from_low(low: u8) -> anyhow::Result<Self> {
         match low {
-            1 => Ok(Binop::Arith(ArithBinop::Add)),
-            2 => Ok(Binop::Arith(ArithBinop::Sub)),
-            3 => Ok(Binop::Arith(ArithBinop::Mul)),
-            4 => Ok(Binop::Arith(ArithBinop::Div)),
-            5 => Ok(Binop::Arith(ArithBinop::Mod)),
-            6 => Ok(Binop::Arith(ArithBinop::Lt)),
-            7 => Ok(Binop::Arith(ArithBinop::Le)),
-            8 => Ok(Binop::Arith(ArithBinop::Gt)),
-            9 => Ok(Binop::Arith(ArithBinop::Ge)),
-            10 => Ok(Binop::Eq),
-            11 => Ok(Binop::Arith(ArithBinop::Ne)),
-            12 => Ok(Binop::Arith(ArithBinop::And)),
-            13 => Ok(Binop::Arith(ArithBinop::Or)),
+            ADD_LOW => Ok(Binop::Arith(ArithBinop::Add)),
+            SUB_LOW => Ok(Binop::Arith(ArithBinop::Sub)),
+            MUL_LOW => Ok(Binop::Arith(ArithBinop::Mul)),
+            DIV_LOW => Ok(Binop::Arith(ArithBinop::Div)),
+            MOD_LOW => Ok(Binop::Arith(ArithBinop::Mod)),
+            LT_LOW => Ok(Binop::Arith(ArithBinop::Lt)),
+            LE_LOW => Ok(Binop::Arith(ArithBinop::Le)),
+            GT_LOW => Ok(Binop::Arith(ArithBinop::Gt)),
+            GE_LOW => Ok(Binop::Arith(ArithBinop::Ge)),
+            EQ_LOW => Ok(Binop::Eq),
+            NE_LOW => Ok(Binop::Arith(ArithBinop::Ne)),
+            AND_LOW => Ok(Binop::Arith(ArithBinop::And)),
+            OR_LOW => Ok(Binop::Arith(ArithBinop::Or)),
             _ => Err(anyhow!("Incorrect low opcode for binop")),
         }
     }
@@ -173,6 +187,29 @@ impl Display for Pattern {
             Self::Unary(pat) => write!(f, "{pat}"),
             Self::Binary(pat) => write!(f, "{pat}"),
         }
+    }
+}
+
+const STR_CMP_PAT_LOW: u8 = 0;
+const STRING_PAT_LOW: u8 = 1;
+const ARRAY_PAT_LOW: u8 = 2;
+const SEXP_PAT_LOW: u8 = 3;
+const BOXED_PAT_LOW: u8 = 4;
+const UNBOXED_PAT_LOW: u8 = 5;
+const CLOSURE_PAT_LOW: u8 = 6;
+
+impl Pattern {
+    fn from_low(low: u8) -> anyhow::Result<Self> {
+        Ok(match low {
+            STR_CMP_PAT_LOW => Pattern::Binary(BinaryPattern::StrCmp),
+            STRING_PAT_LOW => Pattern::Unary(UnaryPattern::String),
+            ARRAY_PAT_LOW => Pattern::Unary(UnaryPattern::Array),
+            SEXP_PAT_LOW => Pattern::Unary(UnaryPattern::Sexp),
+            BOXED_PAT_LOW => Pattern::Unary(UnaryPattern::Boxed),
+            UNBOXED_PAT_LOW => Pattern::Unary(UnaryPattern::Unboxed),
+            CLOSURE_PAT_LOW => Pattern::Unary(UnaryPattern::Closure),
+            _ => bail!("Incorrect low opcode {low:x} for pattern"),
+        })
     }
 }
 
@@ -358,6 +395,50 @@ fn high_low(code: u8) -> (u8, u8) {
     (code >> 4, code & 0xF)
 }
 
+const BINOP_HIGH: u8 = 0;
+const CONST_TO_ELEM_HIGH: u8 = 1;
+const CONST_LOW: u8 = 0;
+const STRING_LOW: u8 = 1;
+const SEXP_LOW: u8 = 2;
+const STI_LOW: u8 = 3;
+const STA_LOW: u8 = 4;
+const JMP_LOW: u8 = 5;
+const END_LOW: u8 = 6;
+const RET_LOW: u8 = 7;
+const DROP_LOW: u8 = 8;
+const DUP_LOW: u8 = 9;
+const SWAP_LOW: u8 = 10;
+const ELEM_LOW: u8 = 11;
+const LD_HIGH: u8 = 2;
+const LDA_HIGH: u8 = 3;
+const ST_HIGH: u8 = 4;
+const CJMP_TO_LINE_HIGH: u8 = 5;
+const CJMP_Z_LOW: u8 = 0;
+const CJMP_NZ_LOW: u8 = 1;
+const BEGIN_LOW: u8 = 2;
+const CBEGIN_LOW: u8 = 3;
+const CLOSURE_LOW: u8 = 4;
+const CALLC_LOW: u8 = 5;
+const CALL_LOW: u8 = 6;
+const TAG_LOW: u8 = 7;
+const ARRAY_LOW: u8 = 8;
+const FAIL_LOW: u8 = 9;
+const LINE_LOW: u8 = 10;
+const PATT_HIGH: u8 = 6;
+const CALL_BUILTIN_HIGH: u8 = 7;
+const END_HIGH: u8 = 15;
+
+const GLOBAL_LOW: u8 = 0;
+const LOCAL_LOW: u8 = 1;
+const ARG_LOW: u8 = 2;
+const CAPTURED_LOW: u8 = 3;
+
+const BUILTINT_READ_LOW: u8 = 0;
+const BUILTINT_WRITE_LOW: u8 = 1;
+const BUILTINT_LENGTH_LOW: u8 = 2;
+const BUILTINT_STRING_LOW: u8 = 3;
+const BUILTINT_ARRAY_LOW: u8 = 4;
+
 impl<T: Load + ?Sized> LoadInsn for T {
     fn load_insn<'a>(
         &'a self,
@@ -365,22 +446,22 @@ impl<T: Load + ?Sized> LoadInsn for T {
         string_tab: StringTab<'a>,
     ) -> anyhow::Result<Option<(Insn, usize)>> {
         let load_loc = |off: usize, low: u8| match low {
-            0 => Ok(Loc::Global(
+            GLOBAL_LOW => Ok(Loc::Global(
                 self.load_i32(off + 1)
                     .and_then(|val| Ok(val.try_into()?))
                     .context("Couldn't load Global variable location")?,
             )),
-            1 => Ok(Loc::Local(
+            LOCAL_LOW => Ok(Loc::Local(
                 self.load_i32(off + 1)
                     .and_then(|val| Ok(val.try_into()?))
                     .context("Couldn't load Local variable location")?,
             )),
-            2 => Ok(Loc::Arg(
+            ARG_LOW => Ok(Loc::Arg(
                 self.load_i32(off + 1)
                     .and_then(|val| Ok(val.try_into()?))
                     .context("Couldn't load Arg location")?,
             )),
-            3 => Ok(Loc::Captured(
+            CAPTURED_LOW => Ok(Loc::Captured(
                 self.load_i32(off + 1)
                     .and_then(|val| Ok(val.try_into()?))
                     .context("Couldn't load Captured variable location")?,
@@ -390,11 +471,11 @@ impl<T: Load + ?Sized> LoadInsn for T {
 
         let (high, low) = high_low(self.load_u8(off).context("Couldn't load instruction")?);
         Ok(Some(match high {
-            0 => (Insn::Binop(Binop::from_low(low)?), off + 1),
-            1 => match low {
-                0 => (Insn::Const(self.load_i32(off + 1)? as isize), off + 5),
-                1 => (Insn::String(self.load_string_pointer(off + 1)?), off + 5),
-                2 => (
+            BINOP_HIGH => (Insn::Binop(Binop::from_low(low)?), off + 1),
+            CONST_TO_ELEM_HIGH => match low {
+                CONST_LOW => (Insn::Const(self.load_i32(off + 1)? as isize), off + 5),
+                STRING_LOW => (Insn::String(self.load_string_pointer(off + 1)?), off + 5),
+                SEXP_LOW => (
                     Insn::Sexp {
                         tag: string_tab
                             .get_tag_hash(self.load_string_pointer(off + 1).context(format!(
@@ -409,38 +490,42 @@ impl<T: Load + ?Sized> LoadInsn for T {
                     },
                     off + 9,
                 ),
-                3 => (Insn::Sti, off + 1),
-                4 => (Insn::Sta, off + 1),
-                5 => (Insn::Jmp(self.load_ip(off + 1)?), off + 5),
-                6 => (Insn::End, off + 1),
-                7 => (Insn::Ret, off + 1),
-                8 => (Insn::Drop, off + 1),
-                9 => (Insn::Dup, off + 1),
-                10 => (Insn::Swap, off + 1),
-                11 => (Insn::Elem, off + 1),
+                STI_LOW => (Insn::Sti, off + 1),
+                STA_LOW => (Insn::Sta, off + 1),
+                JMP_LOW => (Insn::Jmp(self.load_ip(off + 1)?), off + 5),
+                END_LOW => (Insn::End, off + 1),
+                RET_LOW => (Insn::Ret, off + 1),
+                DROP_LOW => (Insn::Drop, off + 1),
+                DUP_LOW => (Insn::Dup, off + 1),
+                SWAP_LOW => (Insn::Swap, off + 1),
+                ELEM_LOW => (Insn::Elem, off + 1),
                 _ => bail!("Unknown low opcode {low:x} for high opcode {high:x}"),
             },
-            2..=4 => {
+            LD_HIGH..=ST_HIGH => {
                 let insn = match high {
-                    2 => Insn::Ld(load_loc(off, low).context("Couldn't load LD insn at {off:x}")?),
-                    3 => {
+                    LD_HIGH => {
+                        Insn::Ld(load_loc(off, low).context("Couldn't load LD insn at {off:x}")?)
+                    }
+                    LDA_HIGH => {
                         Insn::Lda(load_loc(off, low).context("Couldn't load LDA insn at {off:x}")?)
                     }
-                    4 => Insn::St(load_loc(off, low).context("Couldn't load ST insn at {off:x}")?),
+                    ST_HIGH => {
+                        Insn::St(load_loc(off, low).context("Couldn't load ST insn at {off:x}")?)
+                    }
                     _ => unreachable!(),
                 };
                 (insn, off + 5)
             }
-            5 => match low {
-                0 => (
+            CJMP_TO_LINE_HIGH => match low {
+                CJMP_Z_LOW => (
                     Insn::Cjmp(self.load_ip(off + 1)?, JumpCondition::Zero),
                     off + 5,
                 ),
-                1 => (
+                CJMP_NZ_LOW => (
                     Insn::Cjmp(self.load_ip(off + 1)?, JumpCondition::NotZero),
                     off + 5,
                 ),
-                2..=3 => {
+                BEGIN_LOW..=CBEGIN_LOW => {
                     let args: u32 = self
                         .load_i32(off + 1)?
                         .try_into()
@@ -449,7 +534,7 @@ impl<T: Load + ?Sized> LoadInsn for T {
                         .load_i32(off + 5)?
                         .try_into()
                         .context("Negative args count in BEGIN insn")?;
-                    let is_closure = high == 3;
+                    let is_closure = high == CBEGIN_LOW;
                     (
                         Insn::Begin {
                             args,
@@ -459,7 +544,7 @@ impl<T: Load + ?Sized> LoadInsn for T {
                         off + 9,
                     )
                 }
-                4 => {
+                CLOSURE_LOW => {
                     let ip = self.load_ip(off + 1)?;
                     let ncapts: u32 = self
                         .load_i32(off + 5)?
@@ -475,7 +560,7 @@ impl<T: Load + ?Sized> LoadInsn for T {
                         .collect::<anyhow::Result<Vec<Loc>>>()?;
                     (Insn::Closure(ip, capts), off + 9 + ncapts as usize * 5)
                 }
-                5 => (
+                CALLC_LOW => (
                     Insn::Callc(
                         self.load_i32(off + 1)
                             .context(format!("Couldn't load ip in CALLC insn at {off:x}"))?
@@ -483,7 +568,7 @@ impl<T: Load + ?Sized> LoadInsn for T {
                     ),
                     off + 5,
                 ),
-                6 => (
+                CALL_LOW => (
                     Insn::Call(
                         self.load_ip(off + 1)
                             .context(format!("Couldn't load ip in CALL insn at {off:x}"))?,
@@ -494,7 +579,7 @@ impl<T: Load + ?Sized> LoadInsn for T {
                     ),
                     off + 9,
                 ),
-                7 => (
+                TAG_LOW => (
                     Insn::Tag {
                         tag: string_tab
                             .get_tag_hash(self.load_string_pointer(off + 1).context(format!(
@@ -509,7 +594,7 @@ impl<T: Load + ?Sized> LoadInsn for T {
                     },
                     off + 9,
                 ),
-                8 => (
+                ARRAY_LOW => (
                     Insn::Array(
                         self.load_i32(off + 1)
                             .context(format!("Couldn't load length in ARRAY insn at {off:x}"))?
@@ -518,7 +603,7 @@ impl<T: Load + ?Sized> LoadInsn for T {
                     ),
                     off + 5,
                 ),
-                9 => (
+                FAIL_LOW => (
                     Insn::Fail {
                         line: self
                             .load_i32(off + 1)
@@ -533,7 +618,7 @@ impl<T: Load + ?Sized> LoadInsn for T {
                     },
                     off + 9,
                 ),
-                10 => (
+                LINE_LOW => (
                     Insn::Line(
                         self.load_i32(off + 1)
                             .context(format!("Couldn't load line in LINE insn at {off:x}"))?
@@ -544,25 +629,13 @@ impl<T: Load + ?Sized> LoadInsn for T {
                 ),
                 _ => bail!("Incorrect low opcode {low:x} for high opcode {high:x}"),
             },
-            6 => (
-                Insn::Patt(match low {
-                    0 => Pattern::Binary(BinaryPattern::StrCmp),
-                    1 => Pattern::Unary(UnaryPattern::String),
-                    2 => Pattern::Unary(UnaryPattern::Array),
-                    3 => Pattern::Unary(UnaryPattern::Sexp),
-                    4 => Pattern::Unary(UnaryPattern::Boxed),
-                    5 => Pattern::Unary(UnaryPattern::Unboxed),
-                    6 => Pattern::Unary(UnaryPattern::Closure),
-                    _ => bail!("Incorrect low opcode {low:x} for high opcode {high:x}"),
-                }),
-                off + 1,
-            ),
-            7 => match low {
-                0 => (Insn::CallBuiltin(Builtin::Read), off + 1),
-                1 => (Insn::CallBuiltin(Builtin::Write), off + 1),
-                2 => (Insn::CallBuiltin(Builtin::Length), off + 1),
-                3 => (Insn::CallBuiltin(Builtin::String), off + 1),
-                4 => (
+            PATT_HIGH => (Insn::Patt(Pattern::from_low(low)?), off + 1),
+            CALL_BUILTIN_HIGH => match low {
+                BUILTINT_READ_LOW => (Insn::CallBuiltin(Builtin::Read), off + 1),
+                BUILTINT_WRITE_LOW => (Insn::CallBuiltin(Builtin::Write), off + 1),
+                BUILTINT_LENGTH_LOW => (Insn::CallBuiltin(Builtin::Length), off + 1),
+                BUILTINT_STRING_LOW => (Insn::CallBuiltin(Builtin::String), off + 1),
+                BUILTINT_ARRAY_LOW => (
                     Insn::CallBuiltin(Builtin::Array(
                         self.load_i32(off + 1)
                             .context(format!(
@@ -577,8 +650,71 @@ impl<T: Load + ?Sized> LoadInsn for T {
                 ),
                 _ => bail!("Incorrect low opcode {low:x} for high opcode {high:x}"),
             },
-            15 => return Ok(None),
+            END_HIGH => return Ok(None),
             _ => bail!("Unknown high opcode"),
         }))
+    }
+}
+
+#[derive(Clone)]
+pub struct AnalyticInsn {
+    addr: usize,
+    insn: Insn,
+}
+
+impl AnalyticInsn {
+    pub fn new(insn: Insn, addr: usize) -> Self {
+        Self { addr, insn }
+    }
+}
+
+impl Display for AnalyticInsn {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.insn)
+    }
+}
+
+impl Hash for AnalyticInsn {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.insn.hash(state);
+    }
+}
+
+impl PartialEq for AnalyticInsn {
+    fn eq(&self, other: &Self) -> bool {
+        self.insn == other.insn
+    }
+}
+
+impl Eq for AnalyticInsn {}
+
+impl crate::analyze::insn::Instruction for AnalyticInsn {
+    fn addr(&self) -> usize {
+        self.addr
+    }
+
+    fn jumps<'a>(&'a self) -> Box<dyn Iterator<Item = usize> + 'a> {
+        match self.insn.clone() {
+            Insn::Jmp(ip) => Box::new(iter::once(ip.0)),
+            Insn::Cjmp(ip, _) => Box::new(iter::once(ip.0)),
+            Insn::Call(ip, _) => Box::new(iter::once(ip.0)),
+            Insn::Line(_) => panic!("Labels should not be analytic insns"),
+            _ => Box::new(iter::empty()),
+        }
+    }
+
+    fn is_return(&self) -> bool {
+        match self.insn.clone() {
+            Insn::Jmp(..) => true,
+            Insn::Cjmp(..) => true,
+            Insn::Begin { .. } => true,
+            Insn::End => true,
+            Insn::Callc(..) => true,
+            Insn::Call(..) => true,
+            Insn::CallBuiltin(..) => true,
+            Insn::Ret => true,
+            Insn::Line(..) => panic!("Labels should not be analytic insns"),
+            _ => false,
+        }
     }
 }

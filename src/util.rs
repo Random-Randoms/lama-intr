@@ -14,3 +14,11 @@ pub fn hash(data: &[u8]) -> anyhow::Result<usize> {
             .map(|val| (cum << BITS_PER_CHAR) | val.0)
     })
 }
+
+macro_rules! catch {
+    ($b:block) => {
+        (|| $b)()
+    };
+}
+
+pub(crate) use catch;

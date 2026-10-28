@@ -7,6 +7,7 @@ use crate::{
         insn::{Builtin, Insn, Pattern},
     },
     runtime,
+    util::catch,
 };
 
 use anyhow::Context;
@@ -38,7 +39,7 @@ impl<'a> Interpreter<'a> {
             let (insn, next) = self.program.code.get_insn(self.ip)?.clone();
             debug!("Execute {insn}");
             let mut next_ip = Some(next);
-            match insn.clone() {
+            catch! {{ match insn.clone() {
                 Insn::Const(val) => {
                     self.ctrl_stack
                         .cur_frame()?
@@ -252,7 +253,7 @@ impl<'a> Interpreter<'a> {
                 }
                 Insn::Line(_) => Ok(()),
                 Insn::Begin { .. } => Ok(()),
-            }
+            }}}
             .context(format!("Executing {insn}, at ip {}", self.ip))?;
             match next_ip {
                 Some(ip) => {

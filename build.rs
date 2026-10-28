@@ -20,8 +20,8 @@ fn main() {
     let src = PathBuf::from("src")
         .canonicalize()
         .expect("cannot canonicalize path");
-    let stub_c = src.join("stub.c");
-    let stub_o = src.join("stub.o");
+    let wrapper_c = src.join("runtime_wrapper.c");
+    let wrapper_o = src.join("runtime_wrapper.o");
     let runtime_o = runtime_path.join("runtime.o");
     let gc_o = runtime_path.join("gc.o");
     let printf_o = runtime_path.join("printf.o");
@@ -35,15 +35,15 @@ fn main() {
 
     if !std::process::Command::new("gcc")
         .arg("-c")
-        .arg(stub_c)
+        .arg(wrapper_c)
         .arg("-o")
-        .arg(stub_o.clone())
+        .arg(wrapper_o.clone())
         .output()
         .unwrap()
         .status
         .success()
     {
-        panic!("could't build stub.c");
+        panic!("could't build runtime_wrapper.c");
     }
 
     if !std::process::Command::new("ar")
@@ -52,7 +52,7 @@ fn main() {
         .arg(runtime_o)
         .arg(gc_o)
         .arg(printf_o)
-        .arg(stub_o)
+        .arg(wrapper_o)
         .output()
         .expect("could not spawn `ar`")
         .status

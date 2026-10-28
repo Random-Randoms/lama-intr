@@ -1,5 +1,6 @@
 use crate::program::{
     code::LoadCode,
+    insn::AnalyticInsn,
     layout::LoadLayout,
     public_tab::{LoadPublicTab, PublicTab},
     string_tab::{LoadStringTab, StringTab},
@@ -35,5 +36,20 @@ impl<'a> Program<'a> {
             public_tab,
             entry_point,
         })
+    }
+}
+
+impl<'a> crate::analyze::insn::Code<'a, AnalyticInsn> for Program<'a> {
+    fn instructions(&'a self) -> Box<dyn Iterator<Item = AnalyticInsn> + 'a> {
+        Box::new(self.code.get_analytic_insns())
+    }
+
+    fn entry_points(&'a self) -> Box<dyn Iterator<Item = usize> + 'a> {
+        Box::new(
+            self.public_tab
+                .get_entries()
+                .filter(|entry| entry.is_function)
+                .map(|entry| entry.code_off.raw()),
+        )
     }
 }

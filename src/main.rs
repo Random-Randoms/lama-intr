@@ -37,7 +37,7 @@ fn main() -> anyhow::Result<()> {
     .context(format!("Couldn't read bytecode file {}", args.file))?;
     let program = Program::load(data.as_slice()).context("Couldn't load program")?;
     if args.analyze {
-        println!("{}", SeqData::from_code(program.code));
+        println!("{}", SeqData::from_code(&program));
     } else {
         Interpreter::new(program)?
             .run()

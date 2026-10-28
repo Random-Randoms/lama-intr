@@ -1,6 +1,8 @@
 use anyhow::{Context, anyhow};
 
 pub trait Load {
+    fn len(&self) -> usize;
+
     fn subslice(&self, off: usize, len: usize) -> anyhow::Result<&[u8]>;
 
     fn load_i32(&self, off: usize) -> anyhow::Result<i32>;
@@ -11,6 +13,10 @@ pub trait Load {
 }
 
 impl Load for [u8] {
+    fn len(&self) -> usize {
+        self.len()
+    }
+
     fn subslice(&self, off: usize, len: usize) -> anyhow::Result<&[u8]> {
         self.get(off..off + len).context(format!(
             "Slice ({:x} .. {:x}) overflows file size ({:x})",
